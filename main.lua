@@ -4,20 +4,42 @@ require("drawUi")
 require("button")
 
 local ui = {
+  -- layout data
   width = 800,
   height = 600,
   isLandscape = true,
   needsResize = true,
   sections = {},
   gapX = nil,
-  gapY = nil
+  gapY = nil,
 }
 
-local cardImages = {}
-local buttonImages = {}
 local buttons = {}
+local cardImages = {}
+
+local stages = {
+  wait = 1,
+  betweenRounds = 2,
+  setupRound = 3,
+  draw = 4,
+  dealerDraw = 5,
+  score = 6
+}
+
+local results = {
+  none = 1,
+  playerBlackjack = 2,
+  dealerBlackjack = 3,
+  playerSumWin = 4,
+  dealerSumWin = 5,
+  playerSumTooHigh = 6,
+  dealerSumTooHigh = 7,
+}
 
 local state = {
+  stage = stages.betweenRounds,
+  result = results.none,
+  --
   chips = 1000,
   --
   playerDeck = CreateDeck(),
@@ -27,16 +49,6 @@ local state = {
   dealerDeck = CreateDeck(),
   dealerHand = {},
   dealerSum = 0,
-  --
-  revealDealerCards = false,
-  roundIsOngoing = false,
-}
-
-local Stages = {
-  setupRound = 1,
-  draw = 2,
-  dealerDraw = 3,
-  score = 4
 }
 
 function love.load()
@@ -44,7 +56,7 @@ function love.load()
   CalculateSections(ui)
 
   cardImages = LoadCardImages()
-  buttonImages = LoadButtonImages()
+  buttons = LoadButtons(stages)
 
   math.randomseed(os.time())
 
@@ -52,24 +64,108 @@ function love.load()
   ShuffleDeck(state.dealerDeck)
 end
 
+function love.update()
+  local stage = state.stage
+
+  if stage == stages.wait or stage == stages.betweenRounds then
+    return
+  elseif stage == stages.setupRound then
+    state.playerHand = {}
+    local result = DrawCard(state.playerHand, state.playerDeck, 2)
+
+    if result.notEnoughCards then
+      print("ay caramba")
+    end
+
+    state.playerSum = result.sum
+
+    state.dealerHand = {}
+    result = DrawCard(state.dealerHand, state.dealerDeck, 2)
+
+    if result.notEnoughCards then
+      print("ay caramba")
+    end
+
+    state.dealerSum = result.sum
+
+    state.revealDealerCards = true
+    state.roundIsOngoing = true
+
+    state.stage = stages.wait
+  elseif stage == stages.draw then
+    local result = DrawCard(state.playerHand, state.playerDeck, 1)
+
+    if result.notEnoughCards then
+      print("ay caramba")
+      return
+    end
+
+    state.playerSum = result.sum
+
+    if state.playerSum > 21 then
+      state.stage = stages.score
+    else
+      state.stage = stages.wait
+    end
+  elseif stage == stages.dealerDraw then
+    local sum = state.dealerSum
+
+    while sum < 17 do
+      local result = DrawCard(state.dealerHand, state.dealerDeck, 1)
+
+      if result.notEnoughCards then
+        print("ay caramba")
+        break
+      end
+
+      sum = result.sum
+    end
+
+    state.dealerSum = sum
+
+    state.stage = stages.score
+  elseif stage == stages.score then
+    if state.playerSum == 21 then
+      state.result = results.playerBlackjack
+    elseif state.dealerSum == 21 then
+      state.result = results.dealerBlackjack
+    elseif state.playerSum > 21 then
+      state.result = results.playerSumTooHigh
+    elseif state.dealerSum > 21 then
+      state.result = results.dealerSumTooHigh
+    elseif state.playerSum > state.dealerSum then
+      state.result = results.playerSumWin
+    else
+      state.result = results.dealerSumWin
+    end
+
+    state.stage = stages.betweenRounds
+  end
+end
+
 function love.mousepressed(x, y)
-  local clicked = CheckButtonIntersections(x, y, buttons)
-  if clicked == nil then return end
+  for _, button in ipairs(buttons) do
+    local clicked = CheckButtonIntersection(x, y, button)
+    if clicked then
+      button.isDown = true
+      button.downTimer = 20
 
-  if clicked == "start" then
-    
-  elseif clicked == "draw" then
-
-  elseif clicked == "stand" then
-
+      state.stage = button.nextStage
+    end
   end
 end
 
 function love.draw()
   DrawEmptySections()
 
-  DrawHands(ui, state, cardImages)
-  DrawControls(ui, state, buttonImages, buttons)
+  local stage = state.stage
+
+  local revealDealerCards = stage == stages.betweenRounds or stage == stages.dealerDraw
+  local roundIsOngoing = stage ~= stages.betweenRounds
+
+  DrawHands(ui, state, cardImages, revealDealerCards)
+  DrawControls(ui, state, buttons, roundIsOngoing)
+  DrawResult(ui, state, results)
 end
 
 function DrawEmptySections()
@@ -78,7 +174,6 @@ function DrawEmptySections()
   local blue = 0.2
 
   local sections = {
-    ui.sections.topLeftSecondary,
     ui.sections.topRightSecondary,
     ui.sections.topPrimary,
     ui.sections.bottomRightSecondary,

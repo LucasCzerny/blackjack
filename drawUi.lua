@@ -1,4 +1,4 @@
-function DrawHands(ui, state, cardImages)
+function DrawHands(ui, state, cardImages, revealDealerCards)
   local start = ui.sections.bottomPrimary.start
   local size = ui.sections.bottomPrimary.size
 
@@ -21,7 +21,13 @@ function DrawHands(ui, state, cardImages)
   love.graphics.setColor(1, 1, 1)
 
   for _, card in ipairs(state.dealerHand) do
-    local img = cardImages[card.suit][card.rank]
+    local img
+    if revealDealerCards then
+      img = cardImages[card.suit][card.rank]
+    else
+      img = cardImages.deckDealer
+    end
+
     love.graphics.draw(img, currentX, start[2] + cardMargin, 0, scaleX, scaleY)
     currentX = currentX + cardWidth + cardMargin
   end
@@ -36,7 +42,7 @@ function DrawHands(ui, state, cardImages)
   end
 end
 
-function DrawControls(ui, state, buttonImages, buttons)
+function DrawControls(ui, state, buttons, roundIsOngoing)
   local start = ui.sections.bottomLeftSecondary.start
   local size = ui.sections.bottomLeftSecondary.size
 
@@ -47,14 +53,51 @@ function DrawControls(ui, state, buttonImages, buttons)
   local scaleX = buttonSize / imgWidth
   local scaleY = buttonSize / imgHeight
 
-  love.graphics.draw(buttonImages.start, currentX, start[2], 0, scaleX, scaleY)
-  buttons.start = { start = { currentX, start[2] }, size = buttonSize }
+  for _, button in ipairs(buttons) do
+    local img
+    if button.isDown then
+      img = button.imageDown
+      button.downTimer = button.downTimer - 1
 
-  currentX = currentX + buttonSize + ui.gapX
-  love.graphics.draw(buttonImages.draw, currentX, start[2], 0, scaleX, scaleY)
-  buttons.draw = { start = { currentX, start[2] }, size = buttonSize }
+      if button.downTimer == 0 then
+        button.isDown = false
+      end
+    else
+      img = button.image
+    end
 
-  currentX = currentX + buttonSize + ui.gapX
-  love.graphics.draw(buttonImages.stand, currentX, start[2], 0, scaleX, scaleY)
-  buttons.stand = { start = { currentX, start[2] }, size = buttonSize }
+    love.graphics.draw(img, currentX, start[2], 0, scaleX, scaleY)
+    button.position = { start = { currentX, start[2] }, size = buttonSize }
+
+    currentX = currentX + buttonSize + ui.gapX
+  end
+end
+
+function DrawResult(ui, state, results)
+  local start = ui.sections.topLeftSecondary.start
+  local size = ui.sections.topLeftSecondary.size
+
+  love.graphics.print(state.playerSum, start[1], start[2])
+
+  local result = state.result
+  if state.result == results.none then
+    return
+  end
+
+  local text = "why is there no text"
+  if result == results.playerBlackjack then
+    text = "nice coc--- ugh i meant blackjack bro"
+  elseif result == results.dealerBlackjack then
+    text = "that stupid fucking dealer got a fucking blackjack"
+  elseif result == results.playerSumWin then
+    text = "you're just better"
+  elseif result == results.dealerSumWin then
+    text = "he's just better"
+  elseif result == results.playerSumTooHigh then
+    text = "icarus moment"
+  elseif result == results.dealerSumTooHigh then
+    text = "lmao he can't count"
+  end
+
+  love.graphics.print(text, start[1], start[2] + size[2] / 2)
 end

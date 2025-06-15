@@ -24,7 +24,7 @@ end
 function DrawCard(hand, deck, count)
   if count ~= 1 and count ~= 2 then
     print("Dumbass you can only draw 1 or 2 cards")
-    return
+    return { sum = 0, notEnoughCards = true }
   end
 
   if (#deck < 1) or (count == 2 and #deck < 2) then
@@ -46,7 +46,7 @@ function SumHand(hand)
   for _, card in ipairs(hand) do
     -- jack, queen and king have rank 11, 12, 13 in the code
     -- but they only score 10
-    local value = math.max(card.rank, 10)
+    local value = math.min(card.rank, 10)
     sum = sum + value
 
     if card.rank == Ranks.ace then
@@ -72,13 +72,12 @@ function LoadCardImages()
     end
   end
 
-  return images
-end
+  images.deckPlayer = love.graphics.newImage(
+    string.format("images/deckplayer.png")
+  )
+  images.deckDealer = love.graphics.newImage(
+    string.format("images/deckdealer.png")
+  )
 
-function LoadButtonImages()
-  return {
-    draw = love.graphics.newImage("images/draw.png"),
-    stand = love.graphics.newImage("images/stand.png"),
-    start = love.graphics.newImage("images/start.png")
-  }
+  return images
 end
